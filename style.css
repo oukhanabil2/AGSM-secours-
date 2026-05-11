@@ -1,4 +1,5 @@
-/* Variables pour les couleurs pour faciliter les modifications */
+/* ==================== SGA - STYLES COMPLETS V6.0 ==================== */
+/* Variables pour les couleurs */
 :root {
     --bg-dark-blue: #2c3e50;
     --header-blue: #34495e;
@@ -15,6 +16,11 @@
     --text-gold: #f1c40f;
     --text-silver: #bdc3c7;
     --text-bronze: #cd7f32;
+}
+
+/* ==================== STRUCTURE DE BASE ==================== */
+* {
+    box-sizing: border-box;
 }
 
 body {
@@ -39,32 +45,54 @@ body {
     background-color: var(--bg-dark-blue);
 }
 
-/* En-tête */
+/* ==================== EN-TÊTE AVEC LOGO ==================== */
 .app-header {
     background-color: var(--header-blue);
     color: #ffffff;
-    padding: 20px 15px;
+    padding: 15px;
     text-align: center;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     position: sticky;
     top: 0;
     z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
 }
 
-.app-header h1 {
-    font-size: 1.4em;
+.header-logo .logo-img {
+    height: 50px;
+    width: auto;
+    border-radius: 8px;
+}
+
+.header-title h1 {
+    font-size: 1.2em;
     margin: 0;
     font-weight: bold;
     color: #ffffff;
 }
 
-.app-header #sub-title {
-    font-size: 1em;
+.header-title #sub-title {
+    font-size: 0.85em;
     margin: 5px 0 0;
-    color: #ffffff;
+    color: #ecf0f1;
 }
 
-/* Contenu principal */
+/* ==================== PIED DE PAGE ==================== */
+.app-footer {
+    background-color: #1a252f;
+    color: #ecf0f1;
+    text-align: center;
+    padding: 12px;
+    font-size: 0.8em;
+    border-top: 1px solid #34495e;
+    margin-top: auto;
+}
+
+/* ==================== CONTENU PRINCIPAL ==================== */
 #main-content {
     flex-grow: 1;
     padding: 15px;
@@ -72,7 +100,7 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Styles des boutons de menu */
+/* ==================== BOUTONS DE MENU ==================== */
 .menu-button-container {
     display: flex;
     flex-direction: column;
@@ -109,8 +137,14 @@ body {
 .menu-button.quit-button {
     background-color: var(--button-red);
 }
-.menu-button.quit-button:hover { background-color: #c0392b; }
-.menu-button.quit-button:active { background-color: #922b21; }
+
+.menu-button.quit-button:hover { 
+    background-color: #c0392b; 
+}
+
+.menu-button.quit-button:active { 
+    background-color: #922b21; 
+}
 
 .menu-button.menu-section {
     background: linear-gradient(135deg, #3498db, #2c3e50);
@@ -131,7 +165,7 @@ body {
     background-color: #6c7a89 !important;
 }
 
-/* Popups */
+/* ==================== POPUPS ==================== */
 .overlay {
     position: fixed;
     top: 0;
@@ -230,6 +264,7 @@ body {
     gap: 10px;
 }
 
+/* ==================== BOUTONS POPUP ==================== */
 .popup-button {
     padding: 10px 18px;
     border: none;
@@ -260,7 +295,7 @@ body {
     font-size: 0.9em;
 }
 
-/* Sections d'information */
+/* ==================== SECTIONS D'INFORMATION ==================== */
 .info-section {
     background-color: var(--header-blue);
     border-radius: 8px;
@@ -302,7 +337,7 @@ body {
 
 .info-value.green { color: var(--text-green); }
 
-/* Formulaires */
+/* ==================== FORMULAIRES ==================== */
 .form-group {
     margin-bottom: 15px;
 }
@@ -342,7 +377,7 @@ select.form-input option {
     color: #ffffff;
 }
 
-/* Tables */
+/* ==================== TABLES ==================== */
 .classement-table {
     width: 100%;
     border-collapse: collapse;
@@ -351,8 +386,9 @@ select.form-input option {
     color: #ffffff;
 }
 
-.classement-table th, .classement-table td {
-    padding: 8px 5px;
+.classement-table th, 
+.classement-table td {
+    padding: 10px 8px;
     text-align: left;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
@@ -369,12 +405,25 @@ select.form-input option {
     color: #ffffff;
 }
 
-/* Rangs pour le classement */
-.rank-1 { color: var(--text-gold); font-weight: bold; }
-.rank-2 { color: var(--text-silver); font-weight: bold; }
-.rank-3 { color: var(--text-bronze); font-weight: bold; }
+.classement-table tr:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+}
 
-/* Planning tables */
+/* ==================== RANGS POUR LE CLASSEMENT ==================== */
+.rank-1 { 
+    color: var(--text-gold); 
+    font-weight: bold; 
+}
+.rank-2 { 
+    color: var(--text-silver); 
+    font-weight: bold; 
+}
+.rank-3 { 
+    color: var(--text-bronze); 
+    font-weight: bold; 
+}
+
+/* ==================== PLANNING TABLES ==================== */
 .planning-table {
     width: 100%;
     border-collapse: collapse;
@@ -409,7 +458,7 @@ select.form-input option {
     background-color: rgba(231, 76, 60, 0.2);
 }
 
-/* Cellules de shift */
+/* ==================== CELLULES DE SHIFT ==================== */
 .shift-cell {
     font-weight: bold;
     cursor: pointer;
@@ -426,7 +475,7 @@ select.form-input option {
     box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
-/* Badges de statut */
+/* ==================== BADGES DE STATUT ==================== */
 .status-badge {
     padding: 3px 8px;
     border-radius: 12px;
@@ -444,7 +493,11 @@ select.form-input option {
     background-color: #e74c3c;
 }
 
-/* Boutons d'action */
+.status-badge.warning {
+    background-color: #f39c12;
+}
+
+/* ==================== BOUTONS D'ACTION ==================== */
 .action-btn {
     padding: 5px 10px;
     border: none;
@@ -493,10 +546,11 @@ select.form-input option {
     background-color: #e67e22;
 }
 
-/* Barres de progression */
+/* ==================== BARRES DE PROGRESSION ==================== */
 .progress-bar-container {
     margin-bottom: 10px;
 }
+
 .progress-bar-label {
     display: flex;
     justify-content: space-between;
@@ -504,12 +558,14 @@ select.form-input option {
     margin-bottom: 3px;
     color: #ffffff;
 }
+
 .progress-bar-wrapper {
     background-color: var(--header-blue);
     border-radius: 5px;
     height: 12px;
     overflow: hidden;
 }
+
 .progress-bar-fill {
     height: 100%;
     width: 0%;
@@ -517,10 +573,7 @@ select.form-input option {
     transition: width 0.5s ease-out;
 }
 
-/* Total value */
-.total-value { color: var(--text-green); font-weight: bold; }
-
-/* Grilles et cartes */
+/* ==================== GRILLES ET CARTES ==================== */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -548,7 +601,7 @@ select.form-input option {
     font-size: 0.9em;
 }
 
-/* Tableau de bord (dashboard) */
+/* ==================== TABLEAU DE BORD (DASHBOARD) ==================== */
 .dashboard {
     padding: 20px;
 }
@@ -594,13 +647,13 @@ select.form-input option {
     color: #ffffff;
 }
 
-/* Notifications */
+/* ==================== NOTIFICATIONS ==================== */
 .notification-unread {
     background-color: rgba(231, 76, 60, 0.2);
     font-weight: bold;
 }
 
-/* Snackbar */
+/* ==================== SNACKBAR ==================== */
 #snackbar {
     visibility: hidden;
     min-width: 250px;
@@ -623,7 +676,7 @@ select.form-input option {
     animation: fadein 0.5s, fadeout 0.5s 2.5s;
 }
 
-/* Animations */
+/* ==================== ANIMATIONS ==================== */
 @keyframes fadein {
     from {bottom: 0; opacity: 0;}
     to {bottom: 30px; opacity: 1;}
@@ -634,13 +687,12 @@ select.form-input option {
     to {bottom: 0; opacity: 0;}
 }
 
-/* Forcer les libellés des formulaires en blanc */
+/* ==================== FORCE LES COULEURS ==================== */
 .form-group label,
 label {
     color: #ffffff !important;
 }
 
-/* Forcer le texte des select et options en blanc */
 select.form-input,
 select,
 .form-input select,
@@ -650,68 +702,219 @@ select option,
     background-color: #2c3e50 !important;
 }
 
-/* Pour les champs input et textarea */
 input, textarea, .form-input {
     color: #ffffff !important;
 }
 
-/* Pour les titres dans les popups et sections */
 h2, h3, h4, .popup-header h2, .info-section h3 {
     color: #ffffff !important;
 }
 
-/* Responsive */
-@media (max-width: 400px) {
-    .app-header h1 {
-        font-size: 1.2em;
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 600px) {
+    #app-container {
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
     }
+    
+    .dashboard-cards {
+        gap: 10px;
+    }
+    
+    .card {
+        min-width: 120px;
+        padding: 15px;
+    }
+    
+    .card-value {
+        font-size: 1.8em;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-header {
+        padding: 10px;
+    }
+    
+    .header-logo .logo-img {
+        height: 40px;
+    }
+    
+    .header-title h1 {
+        font-size: 1em;
+    }
+    
+    .header-title #sub-title {
+        font-size: 0.7em;
+    }
+    
     .menu-button {
         padding: 15px 10px;
         font-size: 1em;
+        width: 95%;
     }
+    
     .popup-content {
         padding: 15px;
+        width: 95%;
     }
+    
     .popup-header {
         margin: -15px -15px 15px -15px;
     }
+    
     .popup-header h2 {
         font-size: 1.1em;
     }
+    
     .popup-footer {
         padding-top: 15px;
         margin-top: 15px;
         flex-direction: column;
         gap: 8px;
     }
+    
     .popup-footer button {
         width: 100%;
     }
+    
     .planning-table {
-        font-size: 0.75em;
+        font-size: 0.7em;
     }
+    
     .planning-table th,
     .planning-table td {
         padding: 4px 2px;
     }
+    
     .shift-cell {
         min-width: 30px;
         height: 30px;
         font-size: 0.9em;
     }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .stat-card {
+        padding: 10px;
+    }
+    
+    .stat-value {
+        font-size: 1.5em;
+    }
+    
+    .classement-table th,
+    .classement-table td {
+        padding: 6px 4px;
+        font-size: 0.75em;
+    }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 380px) {
     .planning-table {
-        font-size: 0.7em;
+        font-size: 0.6em;
     }
+    
     .planning-table th,
     .planning-table td {
         padding: 3px 1px;
     }
+    
     .shift-cell {
         min-width: 25px;
         height: 25px;
         font-size: 0.8em;
     }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-cards {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .card {
+        width: 100%;
+        max-width: 250px;
+    }
+}
+
+/* ==================== IMPRESSION ==================== */
+@media print {
+    .menu-button-container,
+    .menu-button,
+    .action-btn,
+    .popup-button,
+    button {
+        display: none !important;
+    }
+    
+    body {
+        background-color: white;
+        color: black;
+    }
+    
+    .planning-table,
+    .classement-table {
+        border: 1px solid #ccc;
+    }
+    
+    .planning-table th,
+    .classement-table th {
+        background-color: #eee;
+        color: black;
+    }
+    
+    .planning-table td,
+    .classement-table td {
+        border: 1px solid #ccc;
+        color: black;
+        @keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+    }
+}
+/* Soldes congés - inputs dans tableau */
+td input[type="number"] {
+    background-color: #2c3e50;
+    border: 1px solid #f39c12;
+    border-radius: 4px;
+    padding: 4px;
+    color: white;
+    font-weight: bold;
+}
+/* Réduction de la hauteur des lignes pour tous les tableaux */
+.classement-table th, .classement-table td,
+.planning-table th, .planning-table td,
+table th, table td {
+    padding: 4px 6px !important;
+    font-size: 0.8rem;
+}
+
+/* Boutons d'action plus compacts */
+.action-btn.small {
+    padding: 2px 5px !important;
+    font-size: 0.7rem !important;
+}
+
+/* Réduction des marges internes des cartes */
+.stat-card {
+    padding: 8px !important;
+}
+
+.stat-value {
+    font-size: 1.5rem !important;
 }
