@@ -9,6 +9,77 @@ const JOURS_FRANCAIS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 const MOIS_FRANCAIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 const SHIFT_LABELS = {'1': 'Matin', '2': 'Après-midi', '3': 'Nuit', 'R': 'Repos', 'C': 'Congé', 'M': 'Maladie', 'A': 'Autre absence', '-': 'Non défini'};
 const SHIFT_COLORS = {'1': '#3498db', '2': '#e74c3c', '3': '#9b59b6', 'R': '#2ecc71', 'C': '#f39c12', 'M': '#e67e22', 'A': '#95a5a6', '-': '#7f8c8d'};
+
+// ==================== GESTION HORS LIGNE ====================
+let pendingActions = [];
+
+function loadPendingActions() {
+    const saved = localStorage.getItem('sga_pending_actions');
+    if (saved) pendingActions = JSON.parse(saved);
+}
+
+function savePendingActions() {
+    localStorage.setItem('sga_pending_actions', JSON.stringify(pendingActions));
+}
+
+function addPendingAction(action) {
+    pendingActions.push(action);
+    savePendingActions();
+    console.log(`📦 Action mise en attente (hors ligne) :`, action);
+}
+
+async function flushPendingActions() {
+    if (!navigator.onLine) return;
+    if (pendingActions.length === 0) return;
+    console.log(`🔄 Synchronisation de ${pendingActions.length} action(s) en attente...`);
+    const actions = [...pendingActions];
+    pendingActions = [];
+    savePendingActions();
+    for (const action of actions) {
+        try {
+            if (action.type === 'save_planning') {
+                // Restaurer planningData depuis l’action
+                Object.assign(planningData, action.data);
+                await saveSharedPlanning();
+            } else if (action.type === 'save_agents') {
+                agents = action.data;
+                await saveSharedAgents();
+            } else if (action.type === 'save_panique') {
+                panicCodes = action.data;
+                await saveSharedPanique();
+            } else if (action.type === 'save_habillement') {
+                uniforms = action.data;
+                await saveSharedHabillement();
+            } else if (action.type === 'save_avertissements') {
+                warnings = action.data;
+                await saveSharedAvertissements();
+            } else if (action.type === 'save_users') {
+                users = action.data;
+                await saveSharedUsers();
+            }
+        } catch (err) {
+            console.error(`Échec synchronisation pour ${action.type}`, err);
+            // Remettre en queue pour réessayer plus tard
+            pendingActions.unshift(action);
+            savePendingActions();
+            return;
+        }
+    }
+    showSnackbar("✅ Synchronisation terminée");
+}
+
+// Détecter retour en ligne
+window.addEventListener('online', () => {
+    console.log("📡 Connexion rétablie – synchronisation...");
+    flushPendingActions();
+});
+window.addEventListener('offline', () => {
+    console.log("⚠️ Hors ligne – les modifications seront mises en attente");
+    showSnackbar("⚠️ Vous êtes hors ligne. Les modifications seront synchronisées au retour de la connexion.");
+});
+
+// Initialiser la file d’attente
+loadPendingActions();
 // ==================== FONCTION DE NETTOYAGE DES DATES ====================
 function cleanAllDatesInPlanning(data) {
     const cleaned = {};
@@ -103,6 +174,12 @@ async function saveSharedUsers() {
         console.warn("Sauvegarde utilisateurs ignorée : aucun utilisateur ou utilisateur non connecté");
         return;
     }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_users', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – users sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
     try {
         const dataToSend = users.map(u => ({
             id: u.id,
@@ -125,6 +202,51 @@ async function saveSharedUsers() {
     } catch (err) {
         console.error("❌ Erreur sauvegarde utilisateurs", err);
     }
+}
+
+function generateUsersTable(usersList) {
+    if (!usersList || usersList.length === 0) {
+        return '<p style="text-align:center; padding:20px;">Aucun utilisateur trouvé</p>';
+    }
+    
+    const roleLabels = { 'ADMIN': '👑 Administrateur', 'CP': '👥 Chef Patrouille', 'AGENT': '👤 Agent' };
+    let html = '<div style="overflow-x:auto;"><table class="classement-table"><thead><tr style="background-color:#34495e;"><th>Utilisateur</th><th>Nom</th><th>Prénom</th><th>Rôle</th><th>Groupe</th><th>Agent lié</th><th>Actions</th></tr></thead><tbody>';
+    
+    for (const u of usersList) {
+        const agent = u.agentCode ? agents.find(a => a.code === u.agentCode) : null;
+        html += `<tr style="border-bottom:1px solid #34495e;">
+            <td><strong>${escapeHtml(u.username)}</strong></th>
+            <td>${escapeHtml(u.nom || '')}</th>
+            <td>${escapeHtml(u.prenom || '')}</th>
+            <td>${roleLabels[u.role] || u.role}</th>
+            <td style="text-align:center;">${u.groupe || '-'}</th>
+            <td>${u.agentCode ? `${u.agentCode} (${agent ? agent.nom : '?'})` : '-'}</th>
+            <td style="white-space:nowrap;">
+                <button class="action-btn small blue" onclick="editUser(${u.id})" title="Modifier">✏️</button>
+                <button class="action-btn small orange" onclick="resetUserPassword(${u.id})" title="Réinitialiser mot de passe">🔑</button>
+                ${u.username !== 'admin' ? `<button class="action-btn small red" onclick="deleteUser(${u.id})" title="Supprimer">🗑️</button>` : ''}
+            </th>
+        </tr>`;
+    }
+    html += '</tbody>}</div>';
+    return html;
+}
+function filterUsersList() {
+    const searchTerm = document.getElementById('searchUserInput')?.value.toLowerCase() || '';
+    if (!searchTerm) {
+        const container = document.getElementById('usersListContainer');
+        if (container) container.innerHTML = generateUsersTable(users);
+        return;
+    }
+    const filtered = users.filter(u => 
+        (u.username && u.username.toLowerCase().includes(searchTerm)) ||
+        (u.nom && u.nom.toLowerCase().includes(searchTerm)) ||
+        (u.prenom && u.prenom.toLowerCase().includes(searchTerm)) ||
+        (u.agentCode && u.agentCode.toLowerCase().includes(searchTerm)) ||
+        (u.role && u.role.toLowerCase().includes(searchTerm))
+    );
+    const container = document.getElementById('usersListContainer');
+    if (container) container.innerHTML = generateUsersTable(filtered);
 }
 // ==================== PARTIE 2 : FONCTIONS CLOUD (AGENTS & CONGÉS) ====================
 async function loadSharedAgents() {
@@ -169,6 +291,13 @@ async function saveSharedAgents() {
         console.warn("Sauvegarde agents ignorée : aucun agent ou utilisateur non connecté");
         return;
     }
+   // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_agents', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – agents sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    } 
+    
     try {
         const dataToSend = agents.map(a => ({
             Code: a.code,
@@ -200,10 +329,20 @@ async function saveSharedAgents() {
 }
 async function saveSharedPlanning() {
     if (!APPS_SCRIPT_URL) return;
+    // Condition existante (connexion + planning non vide)
     if (!currentUser || Object.keys(planningData).length === 0) {
-        console.warn("Sauvegarde planning ignorée : planning vide ou utilisateur non connecté");
+        console.warn("Sauvegarde planning ignorée : pas d'utilisateur ou planning vide");
         return;
     }
+
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_planning', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – planning sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
+
+    // Sinon, sauvegarde normale vers le cloud
     try {
         const dataToSend = [];
         for (const [monthKey, agentsData] of Object.entries(planningData)) {
@@ -229,8 +368,10 @@ async function saveSharedPlanning() {
         const text = await response.text();
         if (text !== "OK") throw new Error(text);
         console.log("✅ Planning sauvegardé");
+        if (typeof showSnackbar === 'function') showSnackbar("✅ Planning synchronisé");
     } catch (err) {
         console.error("❌ Erreur sauvegarde planning", err);
+        if (typeof showSnackbar === 'function') showSnackbar("❌ Erreur synchronisation planning");
     }
 }
 // ==================== SYNCHRONISATION SOLDES CONGÉS ====================
@@ -268,6 +409,12 @@ async function saveSharedSoldes() {
         console.warn("Sauvegarde soldes ignorée : aucun solde ou utilisateur non connecté");
         return;
     }
+   // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_soldes', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – soldes sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    } 
     try {
         const dataToSend = soldesConges.map(s => ({
             AgentCode: s.agentCode,
@@ -323,6 +470,13 @@ async function saveSharedPanique() {
     if (!APPS_SCRIPT_URL) return;
     if (!currentUser || panicCodes.length === 0) {
         console.warn("Sauvegarde panique ignorée : aucun code ou utilisateur non connecté");
+        return;
+    }
+    
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_panique', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – panique sauvegardé localement, synchronisation automatique au retour réseau.");
         return;
     }
     try {
@@ -403,6 +557,13 @@ async function saveSharedHabillement() {
         console.warn("Sauvegarde habillement ignorée : aucun uniforme ou utilisateur non connecté");
         return;
     }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_habillement', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – habillement sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
+    
     try {
         const dataToSend = uniforms.map(u => ({
             AgentCode: u.agentCode,
@@ -458,6 +619,12 @@ async function saveSharedAvertissements() {
     if (!APPS_SCRIPT_URL) return;
     if (!currentUser || warnings.length === 0) {
         console.warn("Sauvegarde avertissements ignorée : aucun avertissement ou utilisateur non connecté");
+        return;
+    }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_avertissements', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – avertissement sauvegardé localement, synchronisation automatique au retour réseau.");
         return;
     }
     try {
@@ -864,14 +1031,13 @@ function doLogin() {
     const userInfoDiv = document.createElement('div');
     userInfoDiv.className = 'user-info';
     userInfoDiv.style.cssText = 'margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;';
-    userInfoDiv.innerHTML = `
-        <div id="notificationIcon" style="position:relative; cursor:pointer;"><span style="font-size:1.5rem;">🔔</span><span id="notificationBadge" style="position:absolute; top:-8px; right:-8px; background:#e74c3c; color:white; border-radius:50%; padding:2px 6px; font-size:0.7rem; font-weight:bold; display:none;">0</span></div>
-        <span style="background:#f39c12; padding:4px 12px; border-radius:20px; font-size:0.8rem; color:#2c3e50;">${user.role === 'ADMIN' ? '👑 Admin' : (user.role === 'CP' ? '👥 CP Groupe ' + user.groupe : '👤 Agent')}</span>
-        <span style="color:white;">${user.nom} ${user.prenom}</span>
-        <button class="logout-btn" onclick="logout()" style="background:#e74c3c; border:none; padding:5px 12px; border-radius:20px; color:white; cursor:pointer;">🚪 Déconnexion</button>
-    `;
+ userInfoDiv.innerHTML = `
+    <span style="background:#f39c12; padding:4px 12px; border-radius:20px; font-size:0.8rem; color:#2c3e50;">${user.role === 'ADMIN' ? '👑 Admin' : (user.role === 'CP' ? '👥 CP Groupe ' + user.groupe : '👤 Agent')}</span>
+    <span style="color:white;">${user.nom} ${user.prenom}</span>
+    <button class="logout-btn" onclick="logout()" style="background:#e74c3c; border:none; padding:5px 12px; border-radius:20px; color:white; cursor:pointer;">🚪 Déconnexion</button>
+`;
     header.appendChild(userInfoDiv);
-    attachNotificationClick();
+  
     updateNotificationBadge();
     displayMainMenu();
 }
@@ -4681,22 +4847,20 @@ function showUsersManagement() {
         displayMainMenu();
         return;
     }
+    
     let html = `<div class="info-section"><h3>👥 Gestion des Utilisateurs</h3>
-        <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
             <button class="popup-button green" onclick="showAddUserForm()">➕ Ajouter un utilisateur</button>
             <button class="popup-button blue" onclick="createCPAccountsFromAgents()">🔧 Créer comptes CP</button>
         </div>
-        <div style="overflow-x:auto;"><table class="classement-table"><thead><tr style="background-color:#34495e;"><th>Utilisateur</th><th>Nom</th><th>Prénom</th><th>Rôle</th><th>Groupe</th><th>Agent lié</th><th>Actions</th></tr></thead>
-        <tbody>${users.map(u => {
-            const agent = u.agentCode ? agents.find(a => a.code === u.agentCode) : null;
-            const roleLabels = { 'ADMIN': '👑 Administrateur', 'CP': '👥 Chef Patrouille', 'AGENT': '👤 Agent' };
-            return `<tr style="border-bottom:1px solid #34495e;"><td><strong>${u.username}</strong></td><td>${u.nom}</td><td>${u.prenom}</td>
-            <td>${roleLabels[u.role] || u.role}</td><td style="text-align:center;">${u.groupe || '-'}</td>
-            <td>${u.agentCode ? `${u.agentCode} (${agent ? agent.nom : '?'})` : '-'}</td>
-            <td style="white-space:nowrap;"><button class="action-btn small blue" onclick="editUser(${u.id})" title="Modifier">✏️</button>
-            <button class="action-btn small orange" onclick="resetUserPassword(${u.id})" title="Réinitialiser mot de passe">🔑</button>
-            ${u.username !== 'admin' ? `<button class="action-btn small red" onclick="deleteUser(${u.id})" title="Supprimer">🗑️</button>` : ''}</td></tr>`;
-        }).join('')}</tbody></table></div>
+        <div style="margin-bottom:15px;">
+            <input type="text" id="searchUserInput" placeholder="🔍 Rechercher (nom, prénom, code, rôle...)" 
+                   style="width:100%; padding:8px; border-radius:5px; border:1px solid #34495e; background:#2c3e50; color:white;" 
+                   onkeyup="filterUsersList()">
+        </div>
+        <div id="usersListContainer">
+            ${generateUsersTable(users)}
+        </div>
         <button class="popup-button gray" onclick="displayMainMenu()" style="margin-top:15px;">Retour</button>
     </div>`;
     document.getElementById('main-content').innerHTML = html;
@@ -4712,13 +4876,34 @@ function showAddUserForm() {
         <div class="form-group"><label>Rôle *</label><select id="newUserRole" class="form-input" onchange="toggleUserRoleFields()">
             <option value="ADMIN">👑 Administrateur</option><option value="CP">👥 Chef de Patrouille</option><option value="AGENT">👤 Agent</option></select></div>
         <div id="userGroupField" style="display:none;"><div class="form-group"><label>Groupe</label><select id="newUserGroup" class="form-input"><option value="A">Groupe A</option><option value="B">Groupe B</option><option value="C">Groupe C</option><option value="D">Groupe D</option><option value="E">Groupe E</option></select></div></div>
-        <div id="userAgentField" style="display:none;"><div class="form-group"><label>Agent lié</label><select id="newUserAgent" class="form-input"><option value="">-- Sélectionner un agent --</option>${agentsList.map(a => `<option value="${a.code}">${a.code} - ${a.nom} ${a.prenom} (Groupe ${a.groupe})</option>`).join('')}</select></div></div>
+        <div id="userAgentField" style="display:none;">
+            <div class="form-group"><label>🔍 Filtrer les agents</label><input type="text" id="filterAgentSelect" class="form-input" placeholder="Tapez pour filtrer..." onkeyup="filterNewUserAgentList()"></div>
+            <div class="form-group"><label>Agent lié</label>
+                <select id="newUserAgent" size="5" class="form-input" style="height:auto">
+                    <option value="">-- Sélectionner un agent --</option>
+                    ${agentsList.map(a => `<option value="${a.code}">${a.code} - ${a.nom} ${a.prenom} (Groupe ${a.groupe})</option>`).join('')}
+                </select>
+            </div>
+        </div>
         <button class="popup-button green" onclick="addUser()">💾 Créer</button>
         <button class="popup-button gray" onclick="showUsersManagement()">Annuler</button>
     </div>`;
     document.getElementById('main-content').innerHTML = html;
 }
-
+function filterNewUserAgentList() {
+    const searchTerm = document.getElementById('filterAgentSelect')?.value.toLowerCase() || '';
+    const select = document.getElementById('newUserAgent');
+    if (!select) return;
+    const options = select.options;
+    for (let i = 0; i < options.length; i++) {
+        const text = options[i].text.toLowerCase();
+        if (text.includes(searchTerm) || searchTerm === '') {
+            options[i].style.display = '';
+        } else {
+            options[i].style.display = 'none';
+        }
+    }
+}
 function toggleUserRoleFields() {
     const role = document.getElementById('newUserRole').value;
     document.getElementById('userGroupField').style.display = role === 'CP' ? 'block' : 'none';
