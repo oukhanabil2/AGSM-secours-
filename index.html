@@ -1,5 +1,7 @@
-           // FINAL //
+
+
 <!DOCTYPE html>
+// FINAL//
 <html lang="fr">
 <head>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -43,28 +45,31 @@
     <script src="app.js"></script>
     <script>
         // Attendre que app.js soit chargé
-        setTimeout(function() {
-            console.log("Vérification après 2 secondes:");
-            console.log("- typeof showNotificationsPanel:", typeof showNotificationsPanel);
-            console.log("- typeof notifications:", typeof notifications);
-            console.log("- currentUser:", currentUser ? currentUser.username : "null");
-            
-            var notifIcon = document.getElementById('headerNotification');
-            if (notifIcon && typeof showNotificationsPanel === 'function') {
-                notifIcon.removeEventListener('click', notifIcon.clickHandler);
-                notifIcon.clickHandler = function() {
-                    if (typeof showNotificationsPanel === 'function') {
-                        showNotificationsPanel();
-                    } else {
-                        console.error("showNotificationsPanel n'est pas défini");
-                    }
-                };
-                notifIcon.addEventListener('click', notifIcon.clickHandler);
-                console.log("✅ Événement notification attaché");
+       setTimeout(function() {
+    console.log("Vérification après 2 secondes:");
+    console.log("- typeof showNotificationsPanel:", typeof showNotificationsPanel);
+    console.log("- typeof notifications:", typeof notifications);
+    console.log("- currentUser:", currentUser ? currentUser.username : "null");
+    
+    var notifIcon = document.getElementById('headerNotification');
+    if (notifIcon && typeof showNotificationsPanel === 'function') {
+        // Éviter les doublons d'événements
+        notifIcon.removeEventListener('click', notifIcon._clickHandler);
+        notifIcon._clickHandler = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof showNotificationsPanel === 'function') {
+                showNotificationsPanel();
             } else {
-                console.log("❌ Impossible d'attacher l'événement - fonction non trouvée");
+                console.error("showNotificationsPanel n'est pas défini");
             }
-        }, 2000);
+        };
+        notifIcon.addEventListener('click', notifIcon._clickHandler);
+        console.log("✅ Événement notification attaché");
+    } else {
+        console.log("❌ Impossible d'attacher l'événement - fonction non trouvée");
+    }
+}, 2000);
         
         // Service Worker
         if ('serviceWorker' in navigator) {
