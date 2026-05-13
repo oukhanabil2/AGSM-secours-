@@ -1,4 +1,5 @@
-/* ==================== SGA - STYLES COMPLETS V6.0 ==================== */
+/* ==================== SGA - STYLES COMPLETS V7.0 ==================== */
+        // FINAL //
 /* Variables pour les couleurs */
 :root {
     --bg-dark-blue: #2c3e50;
@@ -16,6 +17,22 @@
     --text-gold: #f1c40f;
     --text-silver: #bdc3c7;
     --text-bronze: #cd7f32;
+}
+
+/* ==================== ANIMATIONS GLOBALES ==================== */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadein {
+    from { bottom: 0; opacity: 0; }
+    to { bottom: 30px; opacity: 1; }
+}
+
+@keyframes fadeout {
+    from { bottom: 30px; opacity: 1; }
+    to { bottom: 0; opacity: 0; }
 }
 
 /* ==================== STRUCTURE DE BASE ==================== */
@@ -45,7 +62,7 @@ body {
     background-color: var(--bg-dark-blue);
 }
 
-/* ==================== EN-TÊTE AVEC LOGO ==================== */
+/* ==================== EN-TÊTE ==================== */
 .app-header {
     background-color: var(--header-blue);
     color: #ffffff;
@@ -57,9 +74,16 @@ body {
     z-index: 1000;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 15px;
     flex-wrap: wrap;
+}
+
+.app-header > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
 }
 
 .header-logo .logo-img {
@@ -382,15 +406,14 @@ select.form-input option {
     width: 100%;
     border-collapse: collapse;
     margin-top: 15px;
-    font-size: 0.9em;
-    color: #ffffff;
 }
 
 .classement-table th, 
 .classement-table td {
-    padding: 10px 8px;
+    padding: 4px 6px !important;
     text-align: left;
     border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.8rem;
 }
 
 .classement-table th {
@@ -407,6 +430,16 @@ select.form-input option {
 
 .classement-table tr:hover {
     background-color: rgba(52, 152, 219, 0.1);
+}
+
+/* ==================== TABLEAU DES SOLDES ==================== */
+td input[type="number"] {
+    background-color: #2c3e50;
+    border: 1px solid #f39c12;
+    border-radius: 4px;
+    padding: 4px;
+    color: white;
+    font-weight: bold;
 }
 
 /* ==================== RANGS POUR LE CLASSEMENT ==================== */
@@ -427,25 +460,25 @@ select.form-input option {
 .planning-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85em;
-    color: #ffffff;
+}
+
+.planning-table th, 
+.planning-table td {
+    padding: 4px 6px !important;
+    text-align: center;
+    border: 1px solid #2c3e50;
+    vertical-align: middle;
+    font-size: 0.8rem;
 }
 
 .planning-table th {
     background-color: #34495e;
     color: #ffffff;
-    padding: 8px 5px;
-    text-align: center;
-    border: 1px solid #2c3e50;
     font-weight: bold;
     min-width: 40px;
 }
 
 .planning-table td {
-    padding: 6px 4px;
-    text-align: center;
-    border: 1px solid #2c3e50;
-    vertical-align: middle;
     color: #ffffff;
 }
 
@@ -510,8 +543,8 @@ select.form-input option {
 }
 
 .action-btn.small {
-    padding: 3px 6px;
-    font-size: 0.8em;
+    padding: 2px 5px !important;
+    font-size: 0.7rem !important;
 }
 
 .action-btn.blue {
@@ -584,13 +617,13 @@ select.form-input option {
 .stat-card {
     background: #34495e;
     border-radius: 8px;
-    padding: 15px;
+    padding: 8px !important;
     text-align: center;
     color: #ffffff;
 }
 
 .stat-value {
-    font-size: 2em;
+    font-size: 1.5rem !important;
     font-weight: bold;
     color: #3498db;
     margin: 10px 0;
@@ -674,17 +707,6 @@ select.form-input option {
 #snackbar.show {
     visibility: visible;
     animation: fadein 0.5s, fadeout 0.5s 2.5s;
-}
-
-/* ==================== ANIMATIONS ==================== */
-@keyframes fadein {
-    from {bottom: 0; opacity: 0;}
-    to {bottom: 30px; opacity: 1;}
-}
-
-@keyframes fadeout {
-    from {bottom: 30px; opacity: 1;}
-    to {bottom: 0; opacity: 0;}
 }
 
 /* ==================== FORCE LES COULEURS ==================== */
@@ -875,46 +897,5 @@ h2, h3, h4, .popup-header h2, .info-section h3 {
     .classement-table td {
         border: 1px solid #ccc;
         color: black;
-        @keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
     }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-    }
-}
-/* Soldes congés - inputs dans tableau */
-td input[type="number"] {
-    background-color: #2c3e50;
-    border: 1px solid #f39c12;
-    border-radius: 4px;
-    padding: 4px;
-    color: white;
-    font-weight: bold;
-}
-/* Réduction de la hauteur des lignes pour tous les tableaux */
-.classement-table th, .classement-table td,
-.planning-table th, .planning-table td,
-table th, table td {
-    padding: 4px 6px !important;
-    font-size: 0.8rem;
-}
-
-/* Boutons d'action plus compacts */
-.action-btn.small {
-    padding: 2px 5px !important;
-    font-size: 0.7rem !important;
-}
-
-/* Réduction des marges internes des cartes */
-.stat-card {
-    padding: 8px !important;
-}
-
-.stat-value {
-    font-size: 1.5rem !important;
 }
