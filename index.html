@@ -1,54 +1,25 @@
-      //  FINAL //
+           // FINAL //
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>AGSM - Gestion des Agents</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=8.0">
     <meta name="theme-color" content="#34495e">
     <meta name="description" content="Système de Gestion des Agents AGSM">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <style>
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .header-notification {
-            position: relative;
-            cursor: pointer;
-            margin-left: auto;
-        }
-        .notification-badge {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background: #e74c3c;
-            color: white;
-            border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            display: none;
-        }
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-left: 15px;
-        }
-    </style>
 </head>
 <body>
     <div id="app-container">
-        <!-- EN-TÊTE -->
-        <div class="app-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:10px; background:#2c3e50; color:white;">
+        <!-- EN-TÊTE (styles définis dans style.css) -->
+        <div class="app-header">
             <div style="display:flex; align-items:center; gap:10px; flex:1;">
                 <img src="logo.png" alt="Logo AGSM" style="height:45px; width:auto; border-radius:8px;">
                 <div>
@@ -80,7 +51,6 @@
             
             var notifIcon = document.getElementById('headerNotification');
             if (notifIcon && typeof showNotificationsPanel === 'function') {
-                // Supprimer les anciens événements
                 notifIcon.removeEventListener('click', notifIcon.clickHandler);
                 notifIcon.clickHandler = function() {
                     if (typeof showNotificationsPanel === 'function') {
