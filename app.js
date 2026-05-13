@@ -1,4 +1,5 @@
 // ==================== SGA v8.0 - APPLICATION COMPLÈTE ====================
+      //FlNAL //
 console.log("🚀 SGA v8.0 - Application chargée");
 
 // ==================== PARTIE 1 : CONSTANTES & CONFIGURATION ====================
@@ -9,6 +10,88 @@ const JOURS_FRANCAIS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 const MOIS_FRANCAIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 const SHIFT_LABELS = {'1': 'Matin', '2': 'Après-midi', '3': 'Nuit', 'R': 'Repos', 'C': 'Congé', 'M': 'Maladie', 'A': 'Autre absence', '-': 'Non défini'};
 const SHIFT_COLORS = {'1': '#3498db', '2': '#e74c3c', '3': '#9b59b6', 'R': '#2ecc71', 'C': '#f39c12', 'M': '#e67e22', 'A': '#95a5a6', '-': '#7f8c8d'};
+
+// ==================== GESTION HORS LIGNE ====================
+let pendingActions = [];
+
+function loadPendingActions() {
+    const saved = localStorage.getItem('sga_pending_actions');
+    if (saved) pendingActions = JSON.parse(saved);
+}
+
+function savePendingActions() {
+    localStorage.setItem('sga_pending_actions', JSON.stringify(pendingActions));
+}
+
+function addPendingAction(action) {
+    pendingActions.push(action);
+    savePendingActions();
+    console.log(`📦 Action mise en attente (hors ligne) :`, action);
+}
+
+async function flushPendingActions() {
+    if (!navigator.onLine) return;
+    if (pendingActions.length === 0) return;
+    console.log(`🔄 Synchronisation de ${pendingActions.length} action(s) en attente...`);
+    const actions = [...pendingActions];
+    pendingActions = [];
+    savePendingActions();
+    for (const action of actions) {
+        try {
+            if (action.type === 'save_planning') {
+                Object.assign(planningData, action.data);
+                await saveSharedPlanning();
+            } else if (action.type === 'save_agents') {
+                agents = action.data;
+                await saveSharedAgents();
+            } else if (action.type === 'save_panique') {
+                panicCodes = action.data;
+                await saveSharedPanique();
+            } else if (action.type === 'save_habillement') {
+                uniforms = action.data;
+                await saveSharedHabillement();
+            } else if (action.type === 'save_avertissements') {
+                warnings = action.data;
+                await saveSharedAvertissements();
+                
+            } else if (action.type === 'save_users') {
+                users = action.data;
+                await saveSharedUsers();
+            } else if (action.type === 'save_notifications') {
+    notifications = action.data;
+    await saveSharedNotifications();
+
+            } else if (action.type === 'save_soldes') {
+            } else if (action.type === 'save_conges') {
+    congesList = action.data;
+    await saveSharedConges();
+                soldesConges =
+              action.data;
+                await saveSharedSoldes();
+            }
+            
+            
+        } catch (err) {
+            console.error(`Échec synchronisation pour ${action.type}`, err);
+            pendingActions.unshift(action);
+            savePendingActions();
+            return;
+        }
+    }
+    showSnackbar("✅ Synchronisation terminée");
+}
+// Détecter retour en ligne
+window.addEventListener('online', () => {
+    console.log("📡 Connexion rétablie – synchronisation...");
+    flushPendingActions();
+});
+window.addEventListener('offline', () => {
+    console.log("⚠️ Hors ligne – les modifications seront mises en attente");
+    showSnackbar("⚠️ Vous êtes hors ligne. Les modifications seront synchronisées au retour de la connexion.");
+});
+
+// Initialiser la file d’attente
+loadPendingActions();
 // ==================== FONCTION DE NETTOYAGE DES DATES ====================
 function cleanAllDatesInPlanning(data) {
     const cleaned = {};
@@ -103,6 +186,12 @@ async function saveSharedUsers() {
         console.warn("Sauvegarde utilisateurs ignorée : aucun utilisateur ou utilisateur non connecté");
         return;
     }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_users', data: JSON.parse(JSON.stringify(users)) });
+        showSnackbar("📡 Hors ligne – users sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
     try {
         const dataToSend = users.map(u => ({
             id: u.id,
@@ -125,6 +214,51 @@ async function saveSharedUsers() {
     } catch (err) {
         console.error("❌ Erreur sauvegarde utilisateurs", err);
     }
+}
+
+function generateUsersTable(usersList) {
+    if (!usersList || usersList.length === 0) {
+        return '<p style="text-align:center; padding:20px;">Aucun utilisateur trouvé</p>';
+    }
+    
+    const roleLabels = { 'ADMIN': '👑 Administrateur', 'CP': '👥 Chef Patrouille', 'AGENT': '👤 Agent' };
+    let html = '<div style="overflow-x:auto;"><table class="classement-table"><thead><tr style="background-color:#34495e;"><th>Utilisateur</th><th>Nom</th><th>Prénom</th><th>Rôle</th><th>Groupe</th><th>Agent lié</th><th>Actions</th></tr></thead><tbody>';
+    
+    for (const u of usersList) {
+        const agent = u.agentCode ? agents.find(a => a.code === u.agentCode) : null;
+        html += `<tr style="border-bottom:1px solid #34495e;">
+            <td><strong>${escapeHtml(u.username)}</strong></th>
+            <td>${escapeHtml(u.nom || '')}</th>
+            <td>${escapeHtml(u.prenom || '')}</th>
+            <td>${roleLabels[u.role] || u.role}</th>
+            <td style="text-align:center;">${u.groupe || '-'}</th>
+            <td>${u.agentCode ? `${u.agentCode} (${agent ? agent.nom : '?'})` : '-'}</th>
+            <td style="white-space:nowrap;">
+                <button class="action-btn small blue" onclick="editUser(${u.id})" title="Modifier">✏️</button>
+                <button class="action-btn small orange" onclick="resetUserPassword(${u.id})" title="Réinitialiser mot de passe">🔑</button>
+                ${u.username !== 'admin' ? `<button class="action-btn small red" onclick="deleteUser(${u.id})" title="Supprimer">🗑️</button>` : ''}
+            </th>
+        </tr>`;
+    }
+    html += '</tbody>}</div>';
+    return html;
+}
+function filterUsersList() {
+    const searchTerm = document.getElementById('searchUserInput')?.value.toLowerCase() || '';
+    if (!searchTerm) {
+        const container = document.getElementById('usersListContainer');
+        if (container) container.innerHTML = generateUsersTable(users);
+        return;
+    }
+    const filtered = users.filter(u => 
+        (u.username && u.username.toLowerCase().includes(searchTerm)) ||
+        (u.nom && u.nom.toLowerCase().includes(searchTerm)) ||
+        (u.prenom && u.prenom.toLowerCase().includes(searchTerm)) ||
+        (u.agentCode && u.agentCode.toLowerCase().includes(searchTerm)) ||
+        (u.role && u.role.toLowerCase().includes(searchTerm))
+    );
+    const container = document.getElementById('usersListContainer');
+    if (container) container.innerHTML = generateUsersTable(filtered);
 }
 // ==================== PARTIE 2 : FONCTIONS CLOUD (AGENTS & CONGÉS) ====================
 async function loadSharedAgents() {
@@ -169,6 +303,13 @@ async function saveSharedAgents() {
         console.warn("Sauvegarde agents ignorée : aucun agent ou utilisateur non connecté");
         return;
     }
+   // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_agents', data: JSON.parse(JSON.stringify(agents)) });
+        showSnackbar("📡 Hors ligne – agents sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    } 
+    
     try {
         const dataToSend = agents.map(a => ({
             Code: a.code,
@@ -200,10 +341,20 @@ async function saveSharedAgents() {
 }
 async function saveSharedPlanning() {
     if (!APPS_SCRIPT_URL) return;
+    // Condition existante (connexion + planning non vide)
     if (!currentUser || Object.keys(planningData).length === 0) {
-        console.warn("Sauvegarde planning ignorée : planning vide ou utilisateur non connecté");
+        console.warn("Sauvegarde planning ignorée : pas d'utilisateur ou planning vide");
         return;
     }
+
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_planning', data: JSON.parse(JSON.stringify(planningData)) });
+        showSnackbar("📡 Hors ligne – planning sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
+
+    // Sinon, sauvegarde normale vers le cloud
     try {
         const dataToSend = [];
         for (const [monthKey, agentsData] of Object.entries(planningData)) {
@@ -229,8 +380,10 @@ async function saveSharedPlanning() {
         const text = await response.text();
         if (text !== "OK") throw new Error(text);
         console.log("✅ Planning sauvegardé");
+        if (typeof showSnackbar === 'function') showSnackbar("✅ Planning synchronisé");
     } catch (err) {
         console.error("❌ Erreur sauvegarde planning", err);
+        if (typeof showSnackbar === 'function') showSnackbar("❌ Erreur synchronisation planning");
     }
 }
 // ==================== SYNCHRONISATION SOLDES CONGÉS ====================
@@ -241,6 +394,10 @@ async function loadSharedSoldes() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const cloudSoldes = await response.json();
         if (Array.isArray(cloudSoldes) && cloudSoldes.length > 0) {
+          // Recalculer les soldes pour tous les agents concernés
+for (const solde of soldesConges) {
+    recalculerSoldesAgent(solde.agentCode);
+}
             soldesConges = cloudSoldes.map(s => ({
                 agentCode: s.AgentCode,
                 annee: s.Annee,
@@ -268,6 +425,12 @@ async function saveSharedSoldes() {
         console.warn("Sauvegarde soldes ignorée : aucun solde ou utilisateur non connecté");
         return;
     }
+   // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_soldes', data: JSON.parse(JSON.stringify(soldesConges)) });
+        showSnackbar("📡 Hors ligne – soldes sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    } 
     try {
         const dataToSend = soldesConges.map(s => ({
             AgentCode: s.agentCode,
@@ -325,6 +488,13 @@ async function saveSharedPanique() {
         console.warn("Sauvegarde panique ignorée : aucun code ou utilisateur non connecté");
         return;
     }
+    
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_panique', data: JSON.parse(JSON.stringify(panicCodes)) });
+        showSnackbar("📡 Hors ligne – panique sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
     try {
         const dataToSend = panicCodes.map(p => ({
             AgentCode: p.agent_code,
@@ -344,31 +514,6 @@ async function saveSharedPanique() {
         console.error("❌ Erreur sauvegarde panique", err);
     }
 }
-async function saveSharedPanique() {
-    if (!APPS_SCRIPT_URL) return;
-    try {
-        const dataToSend = panicCodes.map(p => ({
-            AgentCode: p.agent_code,
-            Code: p.code,
-            Poste: p.poste || '',
-            Commentaire: p.comment || ''
-        }));
-       //   console.log("Envoi Panique:", dataToSend);
-        const response = await fetch(`${APPS_SCRIPT_URL}?tab=Panique&replace=true`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify(dataToSend)
-        });
-        const text = await response.text();
-        if (text !== "OK") throw new Error(`Réponse du serveur: ${text}`);
-        console.log("✅ Codes panique sauvegardés");
-    } catch (err) {
-        console.error("❌ Erreur sauvegarde panique", err);
-        alert("Erreur sauvegarde panique: " + err.message);
-    }
-}
-
-
 
 // ==================== SYNCHRONISATION HABILLEMENT ====================
 async function loadSharedHabillement() {
@@ -403,6 +548,13 @@ async function saveSharedHabillement() {
         console.warn("Sauvegarde habillement ignorée : aucun uniforme ou utilisateur non connecté");
         return;
     }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_habillement', data: JSON.parse(JSON.stringify(uniforms)) });
+        showSnackbar("📡 Hors ligne – habillement sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
+    
     try {
         const dataToSend = uniforms.map(u => ({
             AgentCode: u.agentCode,
@@ -460,6 +612,12 @@ async function saveSharedAvertissements() {
         console.warn("Sauvegarde avertissements ignorée : aucun avertissement ou utilisateur non connecté");
         return;
     }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_avertissements', data: JSON.parse(JSON.stringify(warnings)) });
+        showSnackbar("📡 Hors ligne – avertissement sauvegardé localement, synchronisation automatique au retour réseau.");
+        return;
+    }
     try {
         const dataToSend = warnings.map(w => ({
             Id: w.id,
@@ -510,6 +668,16 @@ async function loadSharedConges() {
 
 async function saveSharedConges() {
     if (!APPS_SCRIPT_URL) return;
+    if (!currentUser || congesList.length === 0) {
+        console.warn("Sauvegarde congés ignorée : aucun congé ou utilisateur non connecté");
+        return;
+    }
+    // Hors ligne : mettre en file d'attente
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_conges', data: JSON.parse(JSON.stringify(congesList)) });
+        showSnackbar("📡 Hors ligne – congés sauvegardés localement, synchronisation automatique au retour réseau.");
+        return;
+    }
     try {
         const dataToSend = congesList.map(c => ({
             AgentCode: c.agentCode,
@@ -519,7 +687,6 @@ async function saveSharedConges() {
             Commentaire: c.comment || '',
             Joker: c.joker || ''
         }));
-        
         const response = await fetch(`${APPS_SCRIPT_URL}?tab=Conges&replace=true`, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain' },
@@ -725,6 +892,7 @@ async function loadData() {
         
         try {
             await loadSharedPlanning();
+            await loadSharedNotifications();
         } catch(e) { console.warn("Planning cloud:", e); }
         
         try {
@@ -851,29 +1019,61 @@ function showLogin() {
     `;
     document.body.insertAdjacentHTML('beforeend', html);
 }
-
 function doLogin() {
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
     const user = users.find(u => u.username === username && u.password === password);
-    if (!user) { alert("❌ Identifiants incorrects!"); return; }
+    
+    if (!user) {
+        alert("❌ Identifiants incorrects!");
+        return;
+    }
+    
     currentUser = user;
     localStorage.setItem('sga_current_user', JSON.stringify({ id: user.id, username: user.username }));
-    document.getElementById('loginOverlay').remove();
+    
+    // Supprimer l'overlay de login
+    const loginOverlay = document.getElementById('loginOverlay');
+    if (loginOverlay) loginOverlay.remove();
+    
+    // Récupérer l'en-tête
     const header = document.querySelector('.app-header');
+    if (!header) return;
+    
+    // Supprimer l'ancienne div user-info si elle existe (pour éviter les doublons)
+    const oldUserInfo = document.querySelector('.user-info');
+    if (oldUserInfo) oldUserInfo.remove();
+    
+    // Créer la div des informations utilisateur (sans recréer l'icône notification)
     const userInfoDiv = document.createElement('div');
     userInfoDiv.className = 'user-info';
-    userInfoDiv.style.cssText = 'margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;';
+    userInfoDiv.style.cssText = 'display:flex; align-items:center; gap:10px; margin-left:15px;';
+    
+    let roleLabel = '';
+    if (user.role === 'ADMIN') roleLabel = '👑 Admin';
+    else if (user.role === 'CP') roleLabel = `👥 CP Groupe ${user.groupe}`;
+    else roleLabel = '👤 Agent';
+    
     userInfoDiv.innerHTML = `
-        <div id="notificationIcon" style="position:relative; cursor:pointer;"><span style="font-size:1.5rem;">🔔</span><span id="notificationBadge" style="position:absolute; top:-8px; right:-8px; background:#e74c3c; color:white; border-radius:50%; padding:2px 6px; font-size:0.7rem; font-weight:bold; display:none;">0</span></div>
-        <span style="background:#f39c12; padding:4px 12px; border-radius:20px; font-size:0.8rem; color:#2c3e50;">${user.role === 'ADMIN' ? '👑 Admin' : (user.role === 'CP' ? '👥 CP Groupe ' + user.groupe : '👤 Agent')}</span>
+        <span style="background:#f39c12; padding:4px 12px; border-radius:20px; font-size:0.8rem; color:#2c3e50;">${roleLabel}</span>
         <span style="color:white;">${user.nom} ${user.prenom}</span>
         <button class="logout-btn" onclick="logout()" style="background:#e74c3c; border:none; padding:5px 12px; border-radius:20px; color:white; cursor:pointer;">🚪 Déconnexion</button>
     `;
     header.appendChild(userInfoDiv);
+    
+    // Attacher l'événement de clic sur l'icône notification (déjà présente dans le HTML)
     attachNotificationClick();
+    
+    // Mettre à jour le badge des notifications
     updateNotificationBadge();
+    
+    // Afficher le menu principal
     displayMainMenu();
+    
+    // Synchroniser les actions en attente si en ligne
+    if (navigator.onLine) {
+        flushPendingActions();
+    }
 }
 
 function logout() {
@@ -1150,10 +1350,15 @@ async function saveLeaveWithJoker() {
             startDate: dates[0], endDate: dates[dates.length-1], absenceType, joker: selectedJoker ? selectedJoker.code : null, comment
         });
     }
-    saveData();
-    await saveSharedPlanning();  
-    alert(`✅ ${absenceType === 'C' ? 'Congés' : 'Absences'} enregistrés${selectedJoker ? `\n🔄 Joker ${selectedJoker.code} remplace ${agentCode}` : ' (sans remplacement)'}`);
-    await saveLeaveToCloud(agentCode, dates[0], dates[dates.length-1], absenceType, comment, selectedJoker ? selectedJoker.code : null);
+  saveData();
+await saveSharedPlanning();
+recalculerSoldesAgent(agentCode);
+await saveSharedSoldes();
+// ==========================================
+
+alert(`✅ ${absenceType === 'C' ? 'Congés' : 'Absences'} enregistrés${selectedJoker ? `\n🔄 Joker ${selectedJoker.code} remplace ${agentCode}` : ' (sans remplacement)'}`);
+await saveLeaveToCloud(agentCode, dates[0], dates[dates.length-1], absenceType, comment, selectedJoker ? selectedJoker.code : null);
+
 // Mettre à jour congesList avec la nouvelle période
 congesList.push({
     agentCode: agentCode,
@@ -1164,7 +1369,7 @@ congesList.push({
     joker: selectedJoker ? selectedJoker.code : null
 });
 await saveSharedConges();    
-    displayLeavesMenu();
+displayLeavesMenu();
 }
 
 
@@ -1583,15 +1788,17 @@ function displayMainMenu() {
 
 async function refreshAllData() {
     showSnackbar("🔄 Synchronisation en cours...");
-    await loadSharedAgents();
-    await loadSharedPlanning();
-    await loadSharedConges();
-    await loadSharedSoldes();
-    await loadSharedPanique();
-    await loadSharedHabillement();
-    await loadSharedAvertissements();
+    await Promise.all([
+        loadSharedAgents(),
+        loadSharedPlanning(),
+        loadSharedConges(),
+        loadSharedSoldes(),
+        loadSharedPanique(),
+        loadSharedHabillement(),
+        loadSharedAvertissements()
+    ]);
     showSnackbar("✅ Données mises à jour");
-    window.location.reload();
+    location.reload();
 }
 
 function displaySubMenu(title, buttons) {
@@ -1861,37 +2068,53 @@ function loadNotifications() {
     const saved = localStorage.getItem('sga_sys_notifications');
     notifications = saved ? JSON.parse(saved) : [];
 }
-
 function saveNotifications() {
     localStorage.setItem('sga_sys_notifications', JSON.stringify(notifications));
+    if (navigator.onLine && currentUser) {
+        saveSharedNotifications();
+    }
 }
 
 function addNotification(type, details) {
     if (!currentUser) return;
+    
     const notification = {
-        id: Date.now(), type, action: details.action || 'create',
-        createdBy: currentUser.username, createdByName: `${currentUser.nom} ${currentUser.prenom}`,
-        createdByRole: currentUser.role, createdAt: new Date().toISOString(),
-        details, readBy: []
+        id: Date.now(),
+        type: type,
+        action: details.action || 'create',
+        createdBy: currentUser.username,
+        createdByName: `${currentUser.nom} ${currentUser.prenom}`,
+        createdByRole: currentUser.role,
+        createdAt: new Date().toISOString(),
+        details: details,
+        readBy: []
     };
+    
     notifications.unshift(notification);
-    if (notifications.length > 100) notifications = notifications.slice(0, 100);
+    if (notifications.length > 200) notifications = notifications.slice(0, 200);
+    
     saveNotifications();
     updateNotificationBadge();
     showNotificationToast(type, details);
+    
+    // Synchronisation cloud
+    if (navigator.onLine) {
+        saveSharedNotifications();
+    } else {
+        addPendingAction({ type: 'save_notifications', data: JSON.parse(JSON.stringify(notifications)) });
+    }
 }
-
 function showNotificationToast(type, details) {
     let message = '';
     switch(type) {
         case 'shift_modification':
-            message = `✏️ Shift modifié : ${details.agentName} le ${details.date} (${details.oldValue} → ${details.newValue})`;
+            message = `✏️ Shift modifié : ${details.agentName} le ${details.date}`;
             break;
         case 'leave_add':
             message = `🏖️ Congé ajouté : ${details.agentName} du ${details.startDate} au ${details.endDate}`;
             break;
         case 'leave_delete':
-            message = `🗑️ Congé supprimé : ${details.agentName} (${details.startDate} → ${details.endDate})`;
+            message = `🗑️ Congé supprimé : ${details.agentName}`;
             break;
         case 'shift_exchange':
             message = `🔄 Échange de shifts : ${details.agent1Name} ↔ ${details.agent2Name}`;
@@ -1909,7 +2132,7 @@ function showNotificationToast(type, details) {
             message = `🚨 Code panique ${details.code} attribué à ${details.agentName}`;
             break;
         case 'uniform_add':
-            message = `👔 Habillement enregistré pour ${details.agentName} : ${details.articles}`;
+            message = `👔 Habillement enregistré pour ${details.agentName}`;
             break;
         case 'warning_add':
             message = `⚠️ Avertissement (${details.warningType}) pour ${details.agentName}`;
@@ -1927,40 +2150,56 @@ function showNotificationToast(type, details) {
 }
 function showNotificationsPanel() {
     if (!currentUser) return;
-    
-    // Filtrer selon le rôle
+
+    // Filtrer les notifications selon le rôle
     let filteredNotifs = notifications.slice();
+
     if (currentUser.role === 'AGENT') {
+        // Agent : seulement ses propres notifications
         const myCode = currentUser.agentCode;
         filteredNotifs = notifications.filter(n => {
             const d = n.details;
-            // Vérifier tous les champs possibles contenant un code agent
             return d.agentCode === myCode || 
                    d.agent1Code === myCode || 
-                   d.agent2Code === myCode ||
-                   d.agentCode === myCode;
+                   d.agent2Code === myCode;
+        });
+    } 
+    else if (currentUser.role === 'CP') {
+        // CP : seulement les notifications des agents de son groupe
+        const monGroupe = currentUser.groupe;
+        const agentsMonGroupe = agents.filter(a => a.groupe === monGroupe).map(a => a.code);
+        filteredNotifs = notifications.filter(n => {
+            const d = n.details;
+            return agentsMonGroupe.includes(d.agentCode) ||
+                   agentsMonGroupe.includes(d.agent1Code) ||
+                   agentsMonGroupe.includes(d.agent2Code);
         });
     }
-    
+    // ADMIN voit tout (pas de filtre)
+
     const unreadCount = filteredNotifs.filter(n => !n.readBy.includes(currentUser.username)).length;
-    
+
+    // Supprimer l'ancien panneau
+    const oldPanel = document.getElementById('notificationsPanel');
+    if (oldPanel) oldPanel.remove();
+
     const panel = document.createElement('div');
     panel.id = 'notificationsPanel';
-    panel.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; justify-content:center; align-items:center; z-index:10001;';
-    
+    panel.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; justify-content:center; align-items:center; z-index:10001;';
+
     let html = `<div style="background:#2c3e50; border-radius:10px; width:500px; max-width:90%; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
         <div style="padding:15px; border-bottom:1px solid #34495e; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-            <h3 style="margin:0;">🔔 Notifications</h3>
+            <h3 style="margin:0; color:#f39c12;">🔔 Notifications</h3>
             <div style="display:flex; gap:8px;">
-                <span style="background:#e74c3c; padding:4px 10px; border-radius:20px;">${unreadCount} non lue(s)</span>
-                <button id="clearAllNotif" style="background:#e74c3c; border:none; padding:5px 12px; border-radius:5px; color:white; cursor:pointer;">🗑️ Tout supprimer</button>
-                <button id="closeNotifPanel" style="background:#7f8c8d; border:none; padding:5px 12px; border-radius:5px; color:white; cursor:pointer;">✖️ Fermer</button>
+                <span style="background:#e74c3c; padding:4px 10px; border-radius:20px; color:white;">${unreadCount} non lue(s)</span>
+                ${currentUser.role === 'ADMIN' ? `<button id="clearAllNotifBtn" style="background:#e74c3c; border:none; padding:5px 12px; border-radius:5px; color:white; cursor:pointer;">🗑️ Tout supprimer</button>` : ''}
+                <button id="closeNotifPanelBtn" style="background:#7f8c8d; border:none; padding:5px 12px; border-radius:5px; color:white; cursor:pointer;">✖️ Fermer</button>
             </div>
         </div>
         <div style="overflow-y:auto; padding:15px;">`;
-    
+
     if (filteredNotifs.length === 0) {
-        html += '<div style="text-align:center; padding:40px;">📭 Aucune notification</div>';
+        html += '<div style="text-align:center; padding:40px; color:#bdc3c7;">📭 Aucune notification</div>';
     } else {
         filteredNotifs.slice().reverse().forEach(n => {
             const isUnread = !n.readBy.includes(currentUser.username);
@@ -1968,13 +2207,13 @@ function showNotificationsPanel() {
             let detailsText = '';
             switch(n.type) {
                 case 'shift_modification':
-                    detailsText = `✏️ Shift modifié : ${n.details.agentName} le ${n.details.date} (${n.details.oldValue} → ${n.details.newValue})`;
+                    detailsText = `✏️ Shift modifié : ${n.details.agentName} le ${n.details.date}`;
                     break;
                 case 'leave_add':
                     detailsText = `🏖️ Congé ajouté : ${n.details.agentName} du ${n.details.startDate} au ${n.details.endDate}`;
                     break;
                 case 'leave_delete':
-                    detailsText = `🗑️ Congé supprimé : ${n.details.agentName} (${n.details.startDate} → ${n.details.endDate})`;
+                    detailsText = `🗑️ Congé supprimé : ${n.details.agentName}`;
                     break;
                 case 'shift_exchange':
                     detailsText = `🔄 Échange de shifts : ${n.details.agent1Name} ↔ ${n.details.agent2Name}`;
@@ -1992,7 +2231,7 @@ function showNotificationsPanel() {
                     detailsText = `🚨 Code panique ${n.details.code} attribué à ${n.details.agentName}`;
                     break;
                 case 'uniform_add':
-                    detailsText = `👔 Habillement enregistré pour ${n.details.agentName} : ${n.details.articles}`;
+                    detailsText = `👔 Habillement enregistré pour ${n.details.agentName}`;
                     break;
                 case 'warning_add':
                     detailsText = `⚠️ Avertissement (${n.details.warningType}) pour ${n.details.agentName}`;
@@ -2001,11 +2240,11 @@ function showNotificationsPanel() {
                     detailsText = JSON.stringify(n.details);
             }
             html += `<div style="background:#34495e; border-radius:8px; padding:12px; margin-bottom:10px; ${isUnread ? 'border-left:3px solid #e74c3c;' : 'border-left:3px solid #2ecc71;'}">
-                <div><strong>${n.type.replace('_', ' ')}</strong> - ${date}</div>
-                <div>Par: ${n.createdByName} (${n.createdByRole})</div>
-                <div>${detailsText}</div>`;
+                <div style="color:#f39c12;"><strong>${n.type.replace(/_/g, ' ').toUpperCase()}</strong> - ${date}</div>
+                <div style="font-size:0.85rem; color:#bdc3c7; margin:5px 0;">Par: ${n.createdByName} (${n.createdByRole})</div>
+                <div style="margin:8px 0;">${detailsText}</div>`;
             if (isUnread) {
-                html += `<button class="mark-read-btn" data-id="${n.id}" style="background:#27ae60; border:none; padding:5px 12px; border-radius:5px; color:white; margin-top:8px;">✓ Marquer lu</button>`;
+                html += `<button class="mark-read-btn" data-id="${n.id}" style="background:#27ae60; border:none; padding:5px 12px; border-radius:5px; color:white; margin-top:8px; cursor:pointer;">✓ Marquer lu</button>`;
             } else {
                 html += `<span style="font-size:0.7rem; color:#27ae60;">✓ Lu</span>`;
             }
@@ -2015,12 +2254,31 @@ function showNotificationsPanel() {
     html += `</div></div>`;
     panel.innerHTML = html;
     document.body.appendChild(panel);
-    
-    document.getElementById('closeNotifPanel').onclick = () => panel.remove();
-    document.getElementById('clearAllNotif').onclick = () => clearAllNotifications(panel);
-    
+
+    // Bouton Fermer
+    const closeBtn = document.getElementById('closeNotifPanelBtn');
+    if (closeBtn) {
+        closeBtn.onclick = () => panel.remove();
+    }
+
+    // Bouton Tout supprimer (admin uniquement)
+    const clearAllBtn = document.getElementById('clearAllNotifBtn');
+    if (clearAllBtn) {
+        clearAllBtn.onclick = () => {
+            if (confirm("⚠️ Supprimer définitivement TOUTES les notifications ?")) {
+                notifications = [];
+                saveNotifications();
+                updateNotificationBadge();
+                panel.remove();
+                showSnackbar("✅ Toutes les notifications ont été supprimées");
+            }
+        };
+    }
+
+    // Boutons Marquer lu
     document.querySelectorAll('.mark-read-btn').forEach(btn => {
-        btn.onclick = () => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
             const id = parseInt(btn.dataset.id);
             const notif = notifications.find(n => n.id === id);
             if (notif && !notif.readBy.includes(currentUser.username)) {
@@ -2046,8 +2304,16 @@ function clearAllNotifications(panel = null) {
 }
 
 function attachNotificationClick() {
-    const icon = document.getElementById('notificationIcon');
-    if (icon) { icon.onclick = (e) => { e.stopPropagation(); showNotificationsPanel(); }; return true; }
+    const icon = document.getElementById('headerNotification');
+    if (icon) {
+        icon.onclick = (e) => { 
+            e.stopPropagation(); 
+            if (typeof showNotificationsPanel === 'function') {
+                showNotificationsPanel();
+            }
+        }; 
+        return true;
+    }
     return false;
 }
 
@@ -2067,37 +2333,30 @@ function getDroitAnnuelPourAnnee(agent, annee) {
     const anneeEntree = dateEntree.getFullYear();
     if (annee < anneeEntree) return 0;
 
-    // Calcul de l'ancienneté (en années) au 1er janvier de l'année considérée
     const premierJanvier = new Date(annee, 0, 1);
-    let ancienneteAnnees = (premierJanvier - dateEntree) / (365.25 * 24 * 3600 * 1000);
-    if (ancienneteAnnees < 0) ancienneteAnnees = 0;
+    let anciennete = (premierJanvier - dateEntree) / (365.25 * 24 * 3600 * 1000);
+    if (anciennete < 0) anciennete = 0;
 
-    // Détermination du droit annuel complet selon l'ancienneté
     let droitComplet = 18;
-    if (ancienneteAnnees >= 0.5 && ancienneteAnnees < 5) droitComplet = 18;
-    else if (ancienneteAnnees >= 5 && ancienneteAnnees < 10) droitComplet = 19.5;
-    else if (ancienneteAnnees >= 10 && ancienneteAnnees < 15) droitComplet = 21;
-    else if (ancienneteAnnees >= 15 && ancienneteAnnees < 20) droitComplet = 22.5;
-    // au-delà de 20 ans, on peut continuer avec 22.5 ou définir plus
+    if (anciennete >= 5 && anciennete < 10) droitComplet = 19.5;
+    else if (anciennete >= 10 && anciennete < 15) droitComplet = 21;
+    else if (anciennete >= 15) droitComplet = 22.5;
 
     const anneeActuelle = new Date().getFullYear();
-    // Année d'embauche : prorata à partir du mois d'entrée (inclus)
+    // Année d'embauche : prorata à partir du mois d'entrée
     if (annee === anneeEntree) {
         const moisEntree = dateEntree.getMonth() + 1;
         const moisRestants = 13 - moisEntree;
         const prorata = droitComplet * moisRestants / 12;
         return Math.round(prorata * 2) / 2;
     }
-    // Année en cours : prorata sur les mois écoulés (si on calcule au fil de l’eau)
+    // Année en cours : prorata sur les mois écoulés
     else if (annee === anneeActuelle) {
         const moisActuel = new Date().getMonth() + 1;
         const prorata = droitComplet * moisActuel / 12;
         return Math.round(prorata * 2) / 2;
     }
-    // Autres années pleines
-    else {
-        return droitComplet;
-    }
+    return droitComplet;
 }
 
 function getJoursPrisDansAnnee(agentCode, annee) {
@@ -2111,28 +2370,118 @@ function getJoursPrisDansAnnee(agentCode, annee) {
     }
     return total;
 }
+async function recalculerToutSoldes(agentCode) {
+    const rows = document.querySelectorAll('#soldeTable tbody tr');
+    if (!rows.length) {
+        showSnackbar("❌ Aucune ligne trouvée");
+        return;
+    }
 
-function recalculerSoldesAgent(agentCode) {
+    // Lire les valeurs saisies pour Pris
+    const saisiesPris = {};
+    for (const row of rows) {
+        const annee = parseInt(row.getAttribute('data-annee'));
+        const prisInput = row.querySelector('.pris-input');
+        if (prisInput) {
+            const valeur = parseFloat(prisInput.value);
+            saisiesPris[annee] = isNaN(valeur) ? 0 : valeur;
+        } else {
+            const solde = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
+            saisiesPris[annee] = solde ? solde.pris : 0;
+        }
+    }
+
+    const agent = agents.find(a => a.code === agentCode);
+    if (!agent) return;
+
+    const annees = Object.keys(saisiesPris).map(Number).sort((a, b) => a - b);
+    if (annees.length === 0) return;
+
+    // Recalcul complet avec report automatique
+    let reportPrecedent = 0;
+    for (const annee of annees) {
+        const droit = getDroitAnnuelPourAnnee(agent, annee);
+        const pris = saisiesPris[annee];
+        const totalDispo = droit + reportPrecedent;
+        const reste = totalDispo - pris;
+
+        let solde = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
+        if (!solde) {
+            soldesConges.push({
+                agentCode, annee,
+                droitAnnuel: droit,
+                reportAnt: reportPrecedent,
+                totalDispo: totalDispo,
+                pris: pris,
+                reste: reste
+            });
+        } else {
+            solde.droitAnnuel = droit;
+            solde.reportAnt = reportPrecedent;
+            solde.totalDispo = totalDispo;
+            solde.pris = pris;
+            solde.reste = reste;
+        }
+
+        reportPrecedent = reste;
+    }
+
+    saveData();
+    await saveSharedSoldes();
+    showSnackbar(`✅ Soldes recalculés pour ${agentCode}`);
+    afficherSoldesAgent(agentCode);
+}
+function recalculerSoldesAgent(agentCode, forcerPrisAuto = false) {
     const agent = agents.find(a => a.code === agentCode);
     if (!agent || !agent.date_entree) return;
+
     const anneeEntree = new Date(agent.date_entree).getFullYear();
     const anneeActuelle = new Date().getFullYear();
+    const annees = [];
+    for (let annee = anneeEntree; annee <= anneeActuelle; annee++) annees.push(annee);
+
     let reportPrecedent = 0;
-    for (let annee = anneeEntree; annee <= anneeActuelle; annee++) {
-        const droit = getDroitAnnuelPourAnnee(agent, annee); // ← utilise la nouvelle fonction
-        let pris = 0;
+
+    for (const annee of annees) {
+        const droit = getDroitAnnuelPourAnnee(agent, annee);
+
+        // Calcul automatique des Pris depuis le planning
+        let prisAuto = 0;
         for (let mois = 1; mois <= 12; mois++) {
             const daysInMonth = new Date(annee, mois, 0).getDate();
             for (let d = 1; d <= daysInMonth; d++) {
-                const dateStr = `${annee}-${mois.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-                if (getShiftForAgent(agentCode, dateStr) === 'C') pris++;
+                const dateStr = `${annee}-${mois.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+                if (getShiftForAgent(agentCode, dateStr) === 'C') prisAuto++;
             }
         }
+
         let existant = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
+        
+        // Décider quelle valeur de Pris utiliser
+        let pris;
+        if (forcerPrisAuto) {
+            pris = prisAuto;  // Forcer depuis le planning
+        } else {
+            // Si une valeur manuelle existe déjà, on la garde
+            if (existant && existant.pris !== undefined && !isNaN(existant.pris)) {
+                pris = existant.pris;
+            } else {
+                pris = prisAuto;
+            }
+        }
+
         const totalDispo = droit + reportPrecedent;
-        const reste = Math.max(0, totalDispo - pris);
+        const reste = totalDispo - pris;
+
         if (!existant) {
-            soldesConges.push({ agentCode, annee, droitAnnuel: droit, reportAnt: reportPrecedent, totalDispo, pris, reste });
+            soldesConges.push({
+                agentCode, annee,
+                droitAnnuel: droit,
+                reportAnt: reportPrecedent,
+                totalDispo: totalDispo,
+                pris: pris,
+                reste: reste
+            });
         } else {
             existant.droitAnnuel = droit;
             existant.reportAnt = reportPrecedent;
@@ -2140,22 +2489,28 @@ function recalculerSoldesAgent(agentCode) {
             existant.pris = pris;
             existant.reste = reste;
         }
+
         reportPrecedent = reste;
     }
     saveData();
 }
 
-
-async function setPrisManuel(agentCode, annee, nouvelleValeur) {
+function setPrisManuel(agentCode, annee, nouvelleValeur) {
     if (!currentUser || currentUser.role !== 'ADMIN') {
         alert("⚠️ Action réservée à l'administrateur");
         return;
     }
     let pris = parseFloat(nouvelleValeur);
     if (isNaN(pris)) pris = 0;
-    let existant = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
-    if (existant) existant.pris = pris;
-    else recalculerSoldesAgent(agentCode);
+    
+    let solde = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
+    if (!solde) {
+        recalculerSoldesAgent(agentCode);
+        solde = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
+        if (!solde) return;
+    }
+    solde.pris = pris;
+    
     const agent = agents.find(a => a.code === agentCode);
     if (!agent) return;
     const anneeEntree = new Date(agent.date_entree).getFullYear();
@@ -2166,7 +2521,7 @@ async function setPrisManuel(agentCode, annee, nouvelleValeur) {
         if (!s) continue;
         const droit = getDroitAnnuelPourAnnee(agent, y);
         const totalDispo = droit + reportPrecedent;
-        const reste = Math.max(0, totalDispo - s.pris);
+        const reste = totalDispo - s.pris;
         s.droitAnnuel = droit;
         s.reportAnt = reportPrecedent;
         s.totalDispo = totalDispo;
@@ -2174,63 +2529,121 @@ async function setPrisManuel(agentCode, annee, nouvelleValeur) {
         reportPrecedent = reste;
     }
     saveData();
-    await saveSharedSoldes();
+    // ✅ CORRECTION : on appelle sans le deuxième paramètre
+    afficherSoldesAgent(agentCode);   // plus de filtre par année
 }
 function afficherSoldesAgent(agentCode, anneeParam = null) {
     const agent = agents.find(a => a.code === agentCode);
-    if (!agent || !canAccessAgent(agentCode)) { alert("Accès non autorisé ou agent introuvable"); return; }
-    recalculerSoldesAgent(agentCode);
+    if (!agent || !canAccessAgent(agentCode)) {
+        alert("Accès non autorisé ou agent introuvable");
+        return;
+    }
+
+    recalculerSoldesAgent(agentCode, false);
+
     let annees = [...new Set(soldesConges.filter(s => s.agentCode === agentCode).map(s => s.annee))].sort();
     if (anneeParam) annees = annees.filter(a => a == anneeParam);
-    let rows = '', totalDroits = 0, totalReports = 0, totalDispo = 0, totalPris = 0, totalRestes = 0;
-    
+
     const isAdmin = (currentUser && currentUser.role === 'ADMIN');
     const isAgent = (currentUser && currentUser.role === 'AGENT');
     const retourOnclick = isAgent ? 'displayAgentMenu()' : 'showSoldeMenu()';
 
+    let rows = '';
     for (const annee of annees) {
         const solde = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
         if (!solde) continue;
-        totalDroits += solde.droitAnnuel;
-        totalReports += solde.reportAnt;
-        totalDispo += solde.totalDispo;
-        totalPris += solde.pris;
-        totalRestes += solde.reste;
-        
-        rows += `<tr>
-            <td style="text-align:center;">${annee}</td>
-            <td style="text-align:center;">${solde.droitAnnuel.toFixed(2)}</th>
-            <td style="text-align:center;">${solde.reportAnt.toFixed(2)}</th>
-            <td style="text-align:center;">${solde.totalDispo.toFixed(2)}</th>
-            <td style="text-align:center;">
-                ${isAdmin 
-                    ? `<input type="number" step="0.5" value="${solde.pris}" style="width:80px;" onchange="setPrisManuel('${agentCode}', ${annee}, this.value)">`
-                    : `<span>${solde.pris}</span>`
+
+        rows += `<tr style="border-bottom:1px solid #34495e;" data-annee="${annee}">
+            <td style="padding:6px; text-align:center;">${annee}</td>
+            <td style="padding:6px; text-align:center;">${solde.droitAnnuel.toFixed(2)}</th>
+            <td style="padding:6px; text-align:center;">${solde.reportAnt.toFixed(2)}</th>
+            <td style="padding:6px; text-align:center;">${solde.totalDispo.toFixed(2)}</th>
+            <td style="padding:6px; text-align:center;">
+                ${isAdmin
+                    ? `<input type="number" step="0.5" value="${solde.pris}" style="width:70px;" class="pris-input" data-agent="${agentCode}" data-annee="${annee}">`
+                    : solde.pris
                 }
             </th>
-            <td style="text-align:center; font-weight:bold; color:#f39c12;">${solde.reste.toFixed(2)}</th>
-            <td style="text-align:center;">
-                ${isAdmin 
-                    ? `<button class="action-btn small blue" onclick="afficherDetailMensuelConges('${agentCode}', ${annee})">📅 Détail</button>`
-                    : ''
-                }
+            <td style="padding:6px; text-align:center; font-weight:bold; ${solde.reste < 0 ? 'color:#e74c3c;' : 'color:#f39c12;'}">${solde.reste.toFixed(2)}</th>
+            <td style="padding:6px; text-align:center;">
+                ${isAdmin ? `<button class="action-btn small blue" onclick="afficherDetailMensuelConges('${agentCode}', ${annee})">📅 Détail</button>` : ''}
             </th>
         </tr>`;
     }
-    
+
+    const derniereAnnee = annees[annees.length-1];
+    const dernierSolde = soldesConges.find(s => s.agentCode === agentCode && s.annee === derniereAnnee);
+    const dernierReste = dernierSolde ? dernierSolde.reste.toFixed(2) : '0';
+
     const html = `<div class="info-section"><h3>📆 Solde des congés - ${agent.nom} ${agent.prenom} (${agent.code})</h3>
-        <div style="overflow-x:auto;"><table class="classement-table"><thead>
-            <tr><th>Année</th><th>Droit annuel</th><th>Report ant.</th><th>Total dispo</th><th>Pris</th><th>Reste</th><th>Actions</th></tr></thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-            <tr><td><strong>Total</strong></th><td><strong>${totalDroits.toFixed(2)}</strong></th>
-            <td><strong>${totalReports.toFixed(2)}</strong></th><td><strong>${totalDispo.toFixed(2)}</strong></th>
-            <td><strong>${totalPris.toFixed(2)}</strong></th><td><strong style="color:#f1c40f;">${totalRestes.toFixed(2)}</strong></th><td></th>
-        </tr></tfoot>
-        </table></div>
-        <button class="popup-button gray" onclick="${retourOnclick}">Retour</button>
+        <div style="overflow-x:auto;">
+            <table class="classement-table" style="width:100%; border-collapse:collapse;" id="soldeTable">
+                <thead><tr style="background-color:#34495e;">
+                    <th style="padding:6px;">Année</th>
+                    <th style="padding:6px;">Droit annuel</th>
+                    <th style="padding:6px;">Report ant.</th>
+                    <th style="padding:6px;">Total dispo</th>
+                    <th style="padding:6px;">Pris</th>
+                    <th style="padding:6px;">Reste</th>
+                    <th style="padding:6px;">Actions</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+                ${isAdmin ? `<tfoot>
+                    <tr style="background-color:#2c3e50;">
+                        <td colspan="7" style="padding:10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                                <div style="background:#f39c12; padding:8px 20px; border-radius:25px; color:#2c3e50; font-weight:bold;">
+                                    📌 Dernier reste (${derniereAnnee}) : ${dernierReste} jours
+                                </div>
+                                <button class="popup-button green" onclick="recalculerToutSoldes('${agentCode}')">💾 Recalculer tout</button>
+                            </div>
+                        </th>
+                    </tr>
+                </tfoot>` : ''}
+            </table>
+        </div>
+        <button class="popup-button gray" onclick="${retourOnclick}" style="margin-top:15px;">Retour</button>
     </div>`;
+
     document.getElementById('main-content').innerHTML = html;
+}
+async function enregistrerLigneSoldes(agentCode, annee) {
+    const row = document.querySelector(`tr[data-annee="${annee}"]`);
+    if (!row) return;
+    const reportInput = row.querySelector('.report-input');
+    const prisInput = row.querySelector('.pris-input');
+    if (!reportInput || !prisInput) return;
+
+    const newReport = parseFloat(reportInput.value) || 0;
+    const newPris = parseFloat(prisInput.value) || 0;
+
+    let solde = soldesConges.find(s => s.agentCode === agentCode && s.annee === annee);
+    if (!solde) return;
+
+    solde.reportAnt = newReport;
+    solde.pris = newPris;
+    solde.totalDispo = solde.droitAnnuel + solde.reportAnt;
+    solde.reste = solde.totalDispo - solde.pris;
+
+    // Recalcul des années suivantes
+    const annees = [...new Set(soldesConges.filter(s => s.agentCode === agentCode).map(s => s.annee))].sort();
+    const index = annees.indexOf(annee);
+    let reportPrecedent = solde.reste;
+    for (let i = index + 1; i < annees.length; i++) {
+        const anneeSuiv = annees[i];
+        const s = soldesConges.find(ss => ss.agentCode === agentCode && ss.annee === anneeSuiv);
+        if (s) {
+            s.reportAnt = reportPrecedent;
+            s.totalDispo = s.droitAnnuel + s.reportAnt;
+            s.reste = s.totalDispo - s.pris;
+            reportPrecedent = s.reste;
+        }
+    }
+
+    saveData();
+    await saveSharedSoldes();
+    showSnackbar(`✅ Soldes mis à jour pour ${annee}`);
+    afficherSoldesAgent(agentCode, annee);
 }
 function afficherDetailMensuelConges(agentCode, annee) {
     const agent = agents.find(a => a.code === agentCode);
@@ -2811,8 +3224,8 @@ function generateGlobalPlanning() {
 }
 
 function showGlobalPlanningWithTotals(month, year, groupFilter = 'ALL') {
-  alert("planningData au moment de l'affichage : " + JSON.stringify(planningData));
-alert("Génération du planning, planningData contient " + Object.keys(planningData).length + " mois"); 
+  
+
     let actifs = agents.filter(a => a.statut === 'actif');
     if (currentUser.role === 'CP') {
         actifs = actifs.filter(a => a.groupe === currentUser.groupe);
@@ -4681,22 +5094,20 @@ function showUsersManagement() {
         displayMainMenu();
         return;
     }
+    
     let html = `<div class="info-section"><h3>👥 Gestion des Utilisateurs</h3>
-        <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
             <button class="popup-button green" onclick="showAddUserForm()">➕ Ajouter un utilisateur</button>
             <button class="popup-button blue" onclick="createCPAccountsFromAgents()">🔧 Créer comptes CP</button>
         </div>
-        <div style="overflow-x:auto;"><table class="classement-table"><thead><tr style="background-color:#34495e;"><th>Utilisateur</th><th>Nom</th><th>Prénom</th><th>Rôle</th><th>Groupe</th><th>Agent lié</th><th>Actions</th></tr></thead>
-        <tbody>${users.map(u => {
-            const agent = u.agentCode ? agents.find(a => a.code === u.agentCode) : null;
-            const roleLabels = { 'ADMIN': '👑 Administrateur', 'CP': '👥 Chef Patrouille', 'AGENT': '👤 Agent' };
-            return `<tr style="border-bottom:1px solid #34495e;"><td><strong>${u.username}</strong></td><td>${u.nom}</td><td>${u.prenom}</td>
-            <td>${roleLabels[u.role] || u.role}</td><td style="text-align:center;">${u.groupe || '-'}</td>
-            <td>${u.agentCode ? `${u.agentCode} (${agent ? agent.nom : '?'})` : '-'}</td>
-            <td style="white-space:nowrap;"><button class="action-btn small blue" onclick="editUser(${u.id})" title="Modifier">✏️</button>
-            <button class="action-btn small orange" onclick="resetUserPassword(${u.id})" title="Réinitialiser mot de passe">🔑</button>
-            ${u.username !== 'admin' ? `<button class="action-btn small red" onclick="deleteUser(${u.id})" title="Supprimer">🗑️</button>` : ''}</td></tr>`;
-        }).join('')}</tbody></table></div>
+        <div style="margin-bottom:15px;">
+            <input type="text" id="searchUserInput" placeholder="🔍 Rechercher (nom, prénom, code, rôle...)" 
+                   style="width:100%; padding:8px; border-radius:5px; border:1px solid #34495e; background:#2c3e50; color:white;" 
+                   onkeyup="filterUsersList()">
+        </div>
+        <div id="usersListContainer">
+            ${generateUsersTable(users)}
+        </div>
         <button class="popup-button gray" onclick="displayMainMenu()" style="margin-top:15px;">Retour</button>
     </div>`;
     document.getElementById('main-content').innerHTML = html;
@@ -4712,13 +5123,34 @@ function showAddUserForm() {
         <div class="form-group"><label>Rôle *</label><select id="newUserRole" class="form-input" onchange="toggleUserRoleFields()">
             <option value="ADMIN">👑 Administrateur</option><option value="CP">👥 Chef de Patrouille</option><option value="AGENT">👤 Agent</option></select></div>
         <div id="userGroupField" style="display:none;"><div class="form-group"><label>Groupe</label><select id="newUserGroup" class="form-input"><option value="A">Groupe A</option><option value="B">Groupe B</option><option value="C">Groupe C</option><option value="D">Groupe D</option><option value="E">Groupe E</option></select></div></div>
-        <div id="userAgentField" style="display:none;"><div class="form-group"><label>Agent lié</label><select id="newUserAgent" class="form-input"><option value="">-- Sélectionner un agent --</option>${agentsList.map(a => `<option value="${a.code}">${a.code} - ${a.nom} ${a.prenom} (Groupe ${a.groupe})</option>`).join('')}</select></div></div>
+        <div id="userAgentField" style="display:none;">
+            <div class="form-group"><label>🔍 Filtrer les agents</label><input type="text" id="filterAgentSelect" class="form-input" placeholder="Tapez pour filtrer..." onkeyup="filterNewUserAgentList()"></div>
+            <div class="form-group"><label>Agent lié</label>
+                <select id="newUserAgent" size="5" class="form-input" style="height:auto">
+                    <option value="">-- Sélectionner un agent --</option>
+                    ${agentsList.map(a => `<option value="${a.code}">${a.code} - ${a.nom} ${a.prenom} (Groupe ${a.groupe})</option>`).join('')}
+                </select>
+            </div>
+        </div>
         <button class="popup-button green" onclick="addUser()">💾 Créer</button>
         <button class="popup-button gray" onclick="showUsersManagement()">Annuler</button>
     </div>`;
     document.getElementById('main-content').innerHTML = html;
 }
-
+function filterNewUserAgentList() {
+    const searchTerm = document.getElementById('filterAgentSelect')?.value.toLowerCase() || '';
+    const select = document.getElementById('newUserAgent');
+    if (!select) return;
+    const options = select.options;
+    for (let i = 0; i < options.length; i++) {
+        const text = options[i].text.toLowerCase();
+        if (text.includes(searchTerm) || searchTerm === '') {
+            options[i].style.display = '';
+        } else {
+            options[i].style.display = 'none';
+        }
+    }
+}
 function toggleUserRoleFields() {
     const role = document.getElementById('newUserRole').value;
     document.getElementById('userGroupField').style.display = role === 'CP' ? 'block' : 'none';
@@ -4825,6 +5257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (savedUser) {
         const userData = JSON.parse(savedUser);
         currentUser = users.find(u => u.id === userData.id);
+        if (currentUser && navigator.onLine) flushPendingActions();
     }
     if (currentUser) {
         const header = document.querySelector('.app-header');
@@ -4852,6 +5285,69 @@ function refreshAllTotals() {
     // Si vous avez une fonction de recalcul global, appelez-la ici.
     // Sinon, on peut simplement recharger la vue actuelle.
     // Mais pour l'instant, on laisse vide, le problème viendra d'ailleurs.
+}
+// ==================== SYNCHRONISATION NOTIFICATIONS CLOUD ====================
+async function loadSharedNotifications() {
+    if (!APPS_SCRIPT_URL) return false;
+    try {
+        const response = await fetch(`${APPS_SCRIPT_URL}?tab=Notifications`);
+        if (!response.ok) throw new Error("Erreur réseau");
+        const cloudNotifications = await response.json();
+        if (Array.isArray(cloudNotifications) && cloudNotifications.length > 0) {
+            notifications = cloudNotifications.map(n => ({
+                id: n.Id,
+                type: n.Type,
+                action: n.Action,
+                createdBy: n.CreatedBy,
+                createdByName: n.CreatedByName,
+                createdByRole: n.CreatedByRole,
+                createdAt: n.CreatedAt,
+                details: typeof n.Details === 'string' ? JSON.parse(n.Details) : n.Details,
+                readBy: n.ReadBy ? n.ReadBy.split(',') : []
+            }));
+            localStorage.setItem('sga_sys_notifications', JSON.stringify(notifications));
+            console.log(`✅ Notifications chargées (${notifications.length})`);
+        }
+        return true;
+    } catch (err) {
+        console.error("❌ Erreur chargement notifications", err);
+        return false;
+    }
+}
+
+async function saveSharedNotifications() {
+    if (!APPS_SCRIPT_URL) return;
+    if (!currentUser) return;
+    
+    if (!navigator.onLine) {
+        addPendingAction({ type: 'save_notifications', data: JSON.parse(JSON.stringify(notifications)) });
+        showSnackbar("📡 Hors ligne – notifications sauvegardées localement");
+        return;
+    }
+    
+    try {
+        const dataToSend = notifications.map(n => ({
+            Id: n.id,
+            Type: n.type,
+            Action: n.action,
+            CreatedBy: n.createdBy,
+            CreatedByName: n.createdByName,
+            CreatedByRole: n.createdByRole,
+            CreatedAt: n.createdAt,
+            Details: JSON.stringify(n.details),
+            ReadBy: n.readBy.join(',')
+        }));
+        const response = await fetch(`${APPS_SCRIPT_URL}?tab=Notifications&replace=true`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(dataToSend)
+        });
+        const text = await response.text();
+        if (text !== "OK") throw new Error(text);
+        console.log("✅ Notifications sauvegardées dans le cloud");
+    } catch (err) {
+        console.error("❌ Erreur sauvegarde notifications", err);
+    }
 }
 
 // Rendre les fonctions globales nécessaires
