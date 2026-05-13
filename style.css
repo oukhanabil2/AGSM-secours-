@@ -1,6 +1,6 @@
 /* ==================== SGA - STYLES COMPLETS V7.0 ==================== */
-/* Variables pour les couleurs */ 
-         // FINAL//
+/* Variables pour les couleurs */
+          // FINAL//
 :root {
     --bg-dark-blue: #2c3e50;
     --header-blue: #34495e;
@@ -166,54 +166,55 @@ body {
     padding: 18px 20px;
     font-size: 1.1em;
     font-weight: bold;
-    color: #ffffff;
-    background-color: var(--button-blue);
+    color: #ffffff !important;
+    background-color: #3498db !important;
+    background: #3498db !important;
     border: none;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.1s ease;
     box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    text-align: center;
 }
 
 .menu-button:hover {
-    background-color: #2980b9;
+    background-color: #2980b9 !important;
+    background: #2980b9 !important;
     transform: translateY(-2px);
 }
 
 .menu-button:active {
-    background-color: #21618C;
+    background-color: #21618C !important;
     transform: translateY(0);
 }
 
 .menu-button.quit-button {
-    background-color: var(--button-red);
+    background-color: #e74c3c !important;
+    background: #e74c3c !important;
 }
 
 .menu-button.quit-button:hover { 
-    background-color: #c0392b; 
-}
-
-.menu-button.quit-button:active { 
-    background-color: #922b21; 
+    background-color: #c0392b !important;
+    background: #c0392b !important;
 }
 
 .menu-button.menu-section {
-    background: linear-gradient(135deg, #3498db, #2c3e50);
+    background: linear-gradient(135deg, #3498db, #2c3e50) !important;
     border-left: 5px solid #f39c12;
 }
 
 .menu-button.menu-section:hover {
-    background: linear-gradient(135deg, #2980b9, #34495e);
-    transform: translateY(-3px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    background: linear-gradient(135deg, #2980b9, #34495e) !important;
 }
 
 .menu-button.back-button {
     background-color: #7f8c8d !important;
+    background: #7f8c8d !important;
 }
 
 .menu-button.back-button:hover {
     background-color: #6c7a89 !important;
+    background: #6c7a89 !important;
 }
 
 /* ==================== POPUPS ==================== */
@@ -675,7 +676,7 @@ td input[type="number"] {
 }
 
 .card {
-    background: #34495e;
+    background: #ecf0f1 !important;  /* fond blanc cassé */
     border-radius: 12px;
     padding: 20px;
     text-align: center;
@@ -686,13 +687,13 @@ td input[type="number"] {
 .card h3 {
     margin: 0 0 10px 0;
     font-size: 1.1em;
-    color: #ffffff;
+    color: #2c3e50 !important;  /* texte bleu foncé */
 }
 
 .card-value {
     font-size: 2.5em;
     font-weight: bold;
-    color: #f1c40f;
+    color: #3498db !important;  /* chiffres en bleu vif */
 }
 
 .dashboard-section {
