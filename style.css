@@ -1,6 +1,6 @@
 /* ==================== SGA - STYLES COMPLETS V7.0 ==================== */
-        // FINAL //
-/* Variables pour les couleurs */
+/* Variables pour les couleurs */ 
+         // FINAL//
 :root {
     --bg-dark-blue: #2c3e50;
     --header-blue: #34495e;
@@ -19,12 +19,7 @@
     --text-bronze: #cd7f32;
 }
 
-/* ==================== ANIMATIONS GLOBALES ==================== */
-@keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
+/* ==================== ANIMATIONS ==================== */
 @keyframes fadein {
     from { bottom: 0; opacity: 0; }
     to { bottom: 30px; opacity: 1; }
@@ -33,6 +28,11 @@
 @keyframes fadeout {
     from { bottom: 30px; opacity: 1; }
     to { bottom: 0; opacity: 0; }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
 /* ==================== STRUCTURE DE BASE ==================== */
@@ -86,6 +86,13 @@ body {
     flex: 1;
 }
 
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 15px;
+}
+
 .header-logo .logo-img {
     height: 50px;
     width: auto;
@@ -103,6 +110,26 @@ body {
     font-size: 0.85em;
     margin: 5px 0 0;
     color: #ecf0f1;
+}
+
+/* ==================== ICÔNE NOTIFICATION ==================== */
+.header-notification {
+    position: relative;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    display: none;
 }
 
 /* ==================== PIED DE PAGE ==================== */
@@ -757,6 +784,13 @@ h2, h3, h4, .popup-header h2, .info-section h3 {
 @media (max-width: 480px) {
     .app-header {
         padding: 10px;
+    }
+    
+    .user-info {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
+        margin-top: 10px;
     }
     
     .header-logo .logo-img {
